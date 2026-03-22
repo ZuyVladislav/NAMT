@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ТЭП участка — расчёт по методике</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --border: #d9e0ea;
+      --text: #1e2430;
+      --muted: #657084;
+      --accent: #1f6feb;
+      --accent-2: #0d3b8e;
+      --ok: #0a7f43;
+      --warn: #b26a00;
+      --shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      min-height: 100vh;
+      gap: 18px;
+      padding: 18px;
+    }
+    .sidebar, .main {
+      min-width: 0;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .sidebar .panel {
+      position: sticky;
+      top: 18px;
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      padding: 18px;
+    }
+    .main {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    h1, h2, h3 {
+      margin: 0 0 12px;
+    }
+    h1 { font-size: 30px; }
+    h2 { font-size: 22px; }
+    h3 { font-size: 18px; }
+    p, .muted {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .block { padding: 18px; }
+    .grid-4, .grid-2 {
+      display: grid;
+      gap: 12px;
+    }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .metric {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff, #f9fbff);
+    }
+    .metric .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .metric .value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, textarea, select, button {
+      font: inherit;
+    }
+    input[type="number"], input[type="text"], textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--text);
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    .field { margin-bottom: 12px; }
+    .section-title {
+      margin-top: 18px;
+      margin-bottom: 10px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.secondary {
+      background: #eef4ff;
+      color: var(--accent-2);
+      border: 1px solid #cfe0ff;
+    }
+    button.ghost {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button:hover { filter: brightness(0.98); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: left;
+      background: #fff;
+    }
+    th {
+      background: #f2f6fd;
+      font-weight: 700;
+    }
+    td input {
+      border: none;
+      padding: 0;
+      width: 100%;
+      background: transparent;
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    details {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+      overflow: hidden;
+    }
+    details summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 16px;
+      font-weight: 700;
+      background: #f8fbff;
+      border-bottom: 1px solid var(--border);
+    }
+    details > div { padding: 16px; }
+    pre {
+      white-space: pre-wrap;
+      background: #0f172a;
+      color: #e5eefc;
+      padding: 14px;
+      border-radius: 12px;
+      overflow: auto;
+      line-height: 1.45;
+    }
+    .status {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #d2e8d8;
+      background: #effaf2;
+      color: var(--ok);
+      font-weight: 600;
+    }
+    .note {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #f0e0bc;
+      background: #fff9ee;
+      color: var(--warn);
+    }
+    .small { font-size: 12px; }
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar .panel { position: static; max-height: none; }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 700px) {
+      .grid-4, .grid-2 { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="panel">
+        <h2>Параметры методики</h2>
+        <p class="small">Статика на GitHub Pages работает полностью в браузере: расчёт, Excel и DOCX — без сервера ⚙️</p>
+
+        <div class="field">
+          <label><input id="use_rounded_funds" type="checkbox" checked /> Использовать округлённые фонды времени (3828 и 1739)</label>
+        </div>
+
+        <div class="section-title">Фонд времени оборудования (2)</div>
+        <div id="eq-params"></div>
+
+        <div class="section-title">Фонд времени рабочего (7)</div>
+        <div id="worker-params"></div>
+
+        <div class="section-title">Коэффициенты</div>
+        <div id="common-params"></div>
+
+        <div class="section-title">Материалы (11)</div>
+        <div id="mat-params"></div>
+
+        <div class="section-title">Заработная плата (2.2)</div>
+        <div id="wage-params"></div>
+
+        <div class="section-title">Вспомогательные (16)</div>
+        <div id="aux-params"></div>
+
+        <div class="section-title">Руководители</div>
+        <div id="leader-params"></div>
+
+        <div class="section-title">Отчисления</div>
+        <div id="vbf-params"></div>
+
+        <div class="section-title">Электроэнергия</div>
+        <div id="energy-params"></div>
+
+        <div class="section-title">РСЭО и цеховые</div>
+        <div id="rseo-params"></div>
+
+        <div class="section-title">ТЭО</div>
+        <div id="teo-params"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="panel block">
+        <h1>ТЭП участка — расчёт по методике</h1>
+        <p>Полный браузерный аналог Streamlit-версии: редактируемые исходные данные, поэтапный расчёт, понятные подстановки, экспорт в Excel и генерация курсовой в DOCX. Подходит для GitHub Pages.</p>
+        <div class="toolbar">
+          <button id="recalcBtn">Пересчитать</button>
+          <button class="secondary" id="saveJsonBtn">Сохранить JSON</button>
+          <button class="secondary" id="loadDefaultsBtn">Вернуть дефолтные данные</button>
+          <button class="ghost" id="exportExcelBtn">Скачать Excel</button>
+          <button class="ghost" id="exportDocxBtn">Скачать DOCX</button>
+        </div>
+        <div id="statusBox" style="margin-top:12px;"></div>
+      </section>
+
+      <section class="panel block">
+        <h2>Исходные данные</h2>
+        <div class="field">
+          <label for="theme">Тема</label>
+          <input id="theme" type="text" />
+        </div>
+        <div class="grid-2">
+          <div>
+            <h3>Детали</h3>
+            <div class="table-wrap"><table id="detailsTable"></table></div>
+          </div>
+          <div>
+            <h3>Операции / оборудование</h3>
+            <div class="table-wrap"><table id="opsTable"></table></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <h3>Тарифная сетка</h3>
+          <div class="toolbar" style="margin-bottom:10px;">
+            <button class="secondary" id="addTariffRowBtn">Добавить строку</button>
+          </div>
+          <div class="table-wrap"><table id="tariffTable"></table></div>
+        </div>
+      </section>
+
+      <section class="panel block">
+        <h2>Тексты для курсовой</h2>
+        <div class="grid-2">
+          <div class="field">
+            <label for="intro_text">Введение</label>
+            <textarea id="intro_text"></textarea>
+          </div>
+          <div class="field">
+            <label for="concl_text">Заключение</label>
+            <textarea id="concl_text"></textarea>
+          </div>
+        </div>
+        <div class="field">
+          <label for="sources_text">Список использованных источников</label>
+          <textarea id="sources_text"></textarea>
+        </div>
+      </section>
+
+      <section class="panel block">
+        <h2>Ключевые результаты</h2>
+        <div class="grid-4" id="metricsGrid"></div>
+      </section>
+
+      <section class="panel block">
+        <h2>Расчёт по методике — поэтапно</h2>
+        <div id="calcSections"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const DEFAULT_INTRO = `Экономика — совокупность наук о ведении хозяйства, вид социальной науки, изучающий взаимоотношения людей в процессе производства, потребления, распределения и обмена товаров или услуг.
+Экономика предприятия — система знаний, связанных с процессом разработки и принятия хозяйственных решений в ходе деятельности предприятия. Предприятие является основным звеном рыночной экономики и основным производителем товаров и услуг.`;
+
+    const DEFAULT_CONCLUSION = `Представленные технологические и экономические расчеты доказывают целесообразность предлагаемой реконструкции производственного процесса.
+Снижение трудоемкости составляет 4,76%, рост производительности — 4,99%. Условная годовая экономия составила 490 419,6 руб., срок окупаемости капитальных вложений — 1,79 года.`;
+
+    const DEFAULT_SOURCES = `1. Балашов А.П. Менеджмент: учебное пособие. — Москва: ИНФРА-М, 2020.
+2. Кнышова Е.Н., Панфилова Е.Е. Экономика организации: учебник. — Москва: ИД «ФОРУМ»: ИНФРА-М, 2021.
+3. Мазилкина Е.И. Менеджмент: учебное пособие. — Москва: ИНФРА-М, 2020.
+4. Цены на материалы по ГАЗу.
+5. Тарифная сетка по ГАЗу.
+6. Методические указания для выполнения курсового (дипломного) проекта (преп. Горшкова Ю.А.).`;
+
+    function defaultDetails() {
+      return [
+        {
+          "Наименование детали": "Деталь «Штуцер гибкого вала»",
+          "Марка стали": "20ХГНМ",
+          "Годовая программа N, шт": 5300,
+          "Вес заготовки Qз, кг": 6.84,
+          "Вес отходов Qотх, кг": 2.25,
+          "Цена заготовки Цз, руб/кг": 75.0,
+          "Цена отходов Цо, руб/кг": 25.0,
+        },
+        {
+          "Наименование детали": "Деталь 2",
+          "Марка стали": "20ХГНМ",
+          "Годовая программа N, шт": 45500,
+          "Вес заготовки Qз, кг": 7.26,
+          "Вес отходов Qотх, кг": 3.10,
+          "Цена заготовки Цз, руб/кг": 75.0,
+          "Цена отходов Цо, руб/кг": 25.0,
+        }
+      ];
+    }
+
+    function defaultOps() {
+      return [
+        {"№ операции":"005","Операция":"Токарная с ЧПУ","Оборудование":"АБМ3679","tшт деталь1, мин":5.6,"tшт деталь2, мин":3.7,"Мощность, кВт":13.0,"Длина, м":3.7,"Ширина, м":2.2,"Оптовая цена, руб/ед":250000,"Норма амортизации, %":12.0},
+        {"№ операции":"010","Операция":"Токарная автоматная","Оборудование":"МН-25","tшт деталь1, мин":4.5,"tшт деталь2, мин":3.2,"Мощность, кВт":12.0,"Длина, м":3.7,"Ширина, м":2.2,"Оптовая цена, руб/ед":250000,"Норма амортизации, %":12.0},
+        {"№ операции":"015","Операция":"Агрегатная","Оборудование":"13АМ647","tшт деталь1, мин":11.1,"tшт деталь2, мин":3.45,"Мощность, кВт":15.0,"Длина, м":3.5,"Ширина, м":2.2,"Оптовая цена, руб/ед":175000,"Норма амортизации, %":12.0},
+        {"№ операции":"020","Операция":"Вертикально-фрезерная","Оборудование":"ВМ12774","tшт деталь1, мин":5.8,"tшт деталь2, мин":3.6,"Мощность, кВт":15.0,"Длина, м":2.2,"Ширина, м":1.6,"Оптовая цена, руб/ед":125000,"Норма амортизации, %":12.0}
+      ];
+    }
+
+    function defaultTariff() {
+      return [
+        {"Разряд":5,"Число рабочих":4,"Часовая ставка, руб/ч":285.48},
+        {"Разряд":6,"Число рабочих":4,"Часовая ставка, руб/ч":312.50}
+      ];
+    }
+
+    function defaultParams() {
+      return {
+        Dk: 365,
+        V_plus_P: 118,
+        Ksm_eq: 2,
+        Fsm: 8.0,
+        Ppr: 6,
+        tn: 1.0,
+        alpha_eq: 3.0,
+        Ksm_worker: 1,
+        a_worker: 12.0,
+        Kvn: 1.1,
+        Kr: 0.95,
+        Ktr: 1.2,
+        prem_pct_main: 50.0,
+        nevykh_pct: 10.0,
+        n2sm_hours: 5.0,
+        k2sm_pct: 20.0,
+        master_pct: 2.0,
+        brig_pct: 11.0,
+        otp_pct: 7.0,
+        go_pct: 1.5,
+        food_price_day: 150.0,
+        n_norm_service: 7.0,
+        ksm_aux: 2,
+        kn_aux_pct: 10.0,
+        aux_dop_pct: 40.0,
+        leader_count: 1,
+        leader_oklad: 60000.0,
+        leader_prem_pct: 50.0,
+        vbf_rate_pct: 31.1,
+        Kv_simul: 0.7,
+        Kps_loss: 0.96,
+        eta_motor: 0.9,
+        q_light_w_m2: 21.0,
+        Fosv_hours: 1800.0,
+        price_kwh: 8.3,
+        transport_mount_pct: 10.0,
+        repair_pct: 4.5,
+        tool_wear_pct: 8.0,
+        tool_restore_pct: 25.0,
+        aux_mat_pct: 1.0,
+        inplant_pct: 5.0,
+        other_pct: 15.0,
+        shop_overhead_pct: 350.0,
+        base_cost_factor: 1.06,
+        base_time_factor: 1.05,
+        use_rounded_funds: true,
+      };
+    }
+
+    const PARAM_GROUPS = {
+      "eq-params": [
+        ["Dk","Дк",1],["V_plus_P","В+П",1],["Ksm_eq","Ксм (оборуд.)",1],["Fsm","Fсм, ч",0.5],["Ppr","Ппр",1],["tn","tн, ч",0.5],["alpha_eq","α, %",0.5]
+      ],
+      "worker-params": [["Ksm_worker","Ксм (рабоч.)",1],["a_worker","a, %",0.5]],
+      "common-params": [["Kvn","Квн",0.05]],
+      "mat-params": [["Kr","Кр",0.01],["Ktr","Ктр",0.05]],
+      "wage-params": [["prem_pct_main","% премии",5],["nevykh_pct","% невыходов",1],["n2sm_hours","n2см, ч",1],["k2sm_pct","К2см, %",1],["master_pct","%м",0.5],["brig_pct","%бр",0.5],["otp_pct","%отп",0.5],["go_pct","%го",0.5],["food_price_day","Питание/день, руб",10]],
+      "aux-params": [["n_norm_service","nн (станков на наладчика)",0.5],["ksm_aux","kсм (вспом.)",1],["kn_aux_pct","Кн, %",1],["aux_dop_pct","% доплат (вспом.)",5]],
+      "leader-params": [["leader_count","Чрук",1],["leader_oklad","Оклад, руб/мес",1000],["leader_prem_pct","% премии (рук.)",5]],
+      "vbf-params": [["vbf_rate_pct","Внебюдж. фонды, %",0.1]],
+      "energy-params": [["Kv_simul","Кв",0.05],["Kps_loss","Кпс",0.01],["eta_motor","η",0.01],["q_light_w_m2","q, Вт/м²",1],["Fosv_hours","Fосв, ч",100],["price_kwh","Цена кВт·ч, руб",0.1]],
+      "rseo-params": [["transport_mount_pct","Тр‑монтаж, %",1],["aux_mat_pct","Вспом. материалы, %",0.5],["repair_pct","Ремонт, %",0.5],["tool_wear_pct","Износ инструмента, %",0.5],["tool_restore_pct","Восстановление, %",1],["inplant_pct","Перемещения, %",0.5],["other_pct","Прочие, %",0.5],["shop_overhead_pct","Цеховые, %",10]],
+      "teo-params": [["base_cost_factor","S1 = S2×k",0.01],["base_time_factor","tбаз = tпр×k",0.01]],
+    };
+
+    let state = {
+      theme: "Рассчитать технико-экономические показатели участка по обработке детали ... в серийном производстве",
+      intro_text: DEFAULT_INTRO,
+      concl_text: DEFAULT_CONCLUSION,
+      sources_text: DEFAULT_SOURCES,
+      details: defaultDetails(),
+      ops: defaultOps(),
+      tariff: defaultTariff(),
+      params: defaultParams(),
+      result: null,
+    };
+
+    function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+    function fmtRu(x, nd = 2, thousands = true) {
+      if (x === null || x === undefined || Number.isNaN(Number(x))) return "";
+      const num = Number(x);
+      const options = { minimumFractionDigits: nd, maximumFractionDigits: nd };
+      return thousands
+        ? num.toLocaleString('ru-RU', options)
+        : num.toFixed(nd).replace('.', ',');
+    }
+    function fmtInt(x) {
+      const v = Number(x);
+      return Number.isFinite(v) ? String(Math.round(v)) : String(x);
+    }
+    function roundMachines(nr, threshold = 0.10) {
+      if (nr <= 0) return 1;
+      const base = Math.floor(nr);
+      const frac = nr - base;
+      if (base === 0) return 1;
+      return frac <= threshold ? base : base + 1;
+    }
+    function hCoeff(area) {
+      if (area <= 3) return 5.0;
+      if (area <= 5) return 4.5;
+      if (area <= 9) return 4.0;
+      if (area <= 14) return 3.5;
+      if (area <= 20) return 3.0;
+      if (area <= 40) return 2.5;
+      if (area <= 75) return 2.0;
+      return 1.5;
+    }
+    function num(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+    function lineBreaks(text) {
+      return String(text || '').split('\n').map(s => s.trim()).filter(Boolean);
+    }
+
+    function computeAll(details, ops, tariff, p) {
+      if (!details || details.length < 2) throw new Error('Нужно минимум 2 детали.');
+      const N1 = num(details[0]["Годовая программа N, шт"]);
+      const N2 = num(details[1]["Годовая программа N, шт"]);
+
+      const calcOps = ops.map(row => {
+        const T1 = (N1 * num(row["tшт деталь1, мин"])) / 60.0;
+        const T2 = (N2 * num(row["tшт деталь2, мин"])) / 60.0;
+        return { ...row, "Т1, н/ч": T1, "Т2, н/ч": T2, "ΣТ, н/ч": T1 + T2 };
+      });
+
+      const T_total = calcOps.reduce((s, r) => s + num(r["ΣТ, н/ч"]), 0);
+      const t_det1_sum = calcOps.reduce((s, r) => s + num(r["tшт деталь1, мин"]), 0);
+      const t_det2_sum = calcOps.reduce((s, r) => s + num(r["tшт деталь2, мин"]), 0);
+
+      const Fq_eq_raw = ((p.Dk - p.V_plus_P) * p.Ksm_eq * p.Fsm - p.Ppr * p.tn) * (1 - p.alpha_eq / 100.0);
+      const Fq_eq_used = p.use_rounded_funds ? Math.round(Fq_eq_raw) : Fq_eq_raw;
+
+      calcOps.forEach(r => {
+        r["nр (расчёт), ед"] = r["ΣТ, н/ч"] / (Fq_eq_used * p.Kvn);
+        r["nпр (принято), ед"] = roundMachines(r["nр (расчёт), ед"], 0.10);
+        r["Кз"] = r["nр (расчёт), ед"] / r["nпр (принято), ед"];
+        r["Загрузка, %"] = r["Кз"] * 100.0;
+        r["Sст, м2"] = num(r["Длина, м"]) * num(r["Ширина, м"]);
+        r["h"] = hCoeff(r["Sст, м2"]);
+        r["S_пр, м2"] = r["Sст, м2"] * r["h"] * r["nпр (принято), ед"];
+      });
+
+      const nr_sum = calcOps.reduce((s, r) => s + num(r["nр (расчёт), ед"]), 0);
+      const npr_sum = calcOps.reduce((s, r) => s + num(r["nпр (принято), ед"]), 0);
+      const Kz_avg = npr_sum ? nr_sum / npr_sum : 0;
+      const S_area = calcOps.reduce((s, r) => s + num(r["S_пр, м2"]), 0);
+
+      const equip = calcOps.map(r => {
+        const qty = num(r["nпр (принято), ед"]);
+        const wholesale = num(r["Оптовая цена, руб/ед"]);
+        const transport = wholesale * (p.transport_mount_pct / 100.0);
+        const fullOne = wholesale + transport;
+        const fullCost = fullOne * qty;
+        return {
+          "Оборудование": r["Оборудование"],
+          "Мощность, кВт": num(r["Мощность, кВт"]),
+          "Оптовая цена, руб/ед": wholesale,
+          "Норма амортизации, %": num(r["Норма амортизации, %"]),
+          "Количество, ед": qty,
+          "Транспортно-монтажные, руб": transport,
+          "Полная цена 1 ед, руб": fullOne,
+          "Полная стоимость, руб": fullCost,
+          "Амортизация в год, руб": fullCost * (num(r["Норма амортизации, %"]) / 100.0),
+        };
+      });
+
+      const equip_total_cost = equip.reduce((s, r) => s + num(r["Полная стоимость, руб"]), 0);
+      const equip_total_power = equip.reduce((s, r) => s + num(r["Мощность, кВт"]) * num(r["Количество, ед"]), 0);
+      const equip_amort_total = equip.reduce((s, r) => s + num(r["Амортизация в год, руб"]), 0);
+
+      const Fq_worker_raw = ((p.Dk - p.V_plus_P) * p.Fsm * p.Ksm_worker) * (1 - p.a_worker / 100.0);
+      const Fq_worker_used = p.use_rounded_funds ? Math.round(Fq_worker_raw) : Fq_worker_raw;
+      const D_rab = p.Dk - p.V_plus_P;
+
+      const workers = calcOps.map(r => {
+        const calc = r["ΣТ, н/ч"] / (Fq_worker_used * p.Kvn);
+        return {
+          "№ операции": r["№ операции"],
+          "Операция": r["Операция"],
+          "Оборудование": r["Оборудование"],
+          "Кол-во станков": r["nпр (принято), ед"],
+          "ΣТ, н/ч": r["ΣТ, н/ч"],
+          "Росн (расчёт), чел": calc,
+          "Росн (принято), чел": Math.ceil(calc),
+        };
+      });
+      const Ch_osn = workers.reduce((s, r) => s + num(r["Росн (принято), чел"]), 0);
+      const Ch_osn_per_shift = p.Ksm_eq ? Math.ceil(Ch_osn / p.Ksm_eq) : Ch_osn;
+
+      const tariff_calc = tariff.map(r => ({
+        ...r,
+        "Произведение разряд*число": num(r["Разряд"]) * num(r["Число рабочих"]),
+        "Произведение ставка*число": num(r["Часовая ставка, руб/ч"]) * num(r["Число рабочих"]),
+      }));
+      const total_workers_tariff = tariff_calc.reduce((s, r) => s + num(r["Число рабочих"]), 0);
+      const grade_avg = total_workers_tariff ? tariff_calc.reduce((s, r) => s + num(r["Произведение разряд*число"]), 0) / total_workers_tariff : 0;
+      const S_ch_avg = total_workers_tariff ? tariff_calc.reduce((s, r) => s + num(r["Произведение ставка*число"]), 0) / total_workers_tariff : 0;
+
+      const Ch_aux_calc = (npr_sum / p.n_norm_service) * p.ksm_aux * (1 + p.kn_aux_pct / 100.0);
+      const Ch_aux = Math.ceil(Ch_aux_calc);
+
+      const det = details.map(r => {
+        const Mo = ((num(r["Цена заготовки Цз, руб/кг"]) * num(r["Вес заготовки Qз, кг"]) - num(r["Цена отходов Цо, руб/кг"]) * num(r["Вес отходов Qотх, кг"]) * p.Kr) * p.Ktr);
+        return {
+          ...r,
+          "Мо, руб/дет": Mo,
+          "Мг по детали, руб/год": Mo * num(r["Годовая программа N, шт"]),
+        };
+      });
+      const materials_total = det.reduce((s, r) => s + num(r["Мг по детали, руб/год"]), 0);
+
+      const ZPo = S_ch_avg * T_total;
+      const D_prem = ZPo * p.prem_pct_main / 100.0;
+      const Dn = p.Dk;
+      const Dnev = Dn * (p.nevykh_pct / 100.0);
+      const D_2sm = (S_ch_avg * (Dn - Dnev) * p.n2sm_hours * Ch_osn * p.k2sm_pct) / (2.0 * 100.0);
+      const D_m = ZPo * p.master_pct / 100.0;
+      const Ch_br = Ch_osn > 0 ? 1 : 0;
+      const D_br = (S_ch_avg * Fq_worker_used * Ch_br * p.brig_pct) / 100.0;
+      const D_ch = D_prem + D_2sm + D_m + D_br;
+      const ZP_ch = ZPo + D_ch;
+      const ZP_dn = ZP_ch;
+      const D_otp = ZP_dn * p.otp_pct / 100.0;
+      const D_go = ZP_dn * p.go_pct / 100.0;
+      const D_food = D_rab * Ch_osn * p.food_price_day;
+      const D_year = D_otp + D_go + D_food;
+      const ZP_year_main = ZP_dn + D_year;
+      const add_ratio = ZPo ? (ZP_year_main - ZPo) / ZPo : 0;
+      const add_pct_main = add_ratio * 100.0;
+      const ZP_month_main = Ch_osn ? ZP_year_main / (12.0 * Ch_osn) : 0;
+
+      const ZPo_aux = S_ch_avg * Fq_worker_used * Ch_aux;
+      const D_aux = ZPo_aux * p.aux_dop_pct / 100.0;
+      const ZP_year_aux = ZPo_aux + D_aux;
+      const ZP_month_aux = Ch_aux ? ZP_year_aux / (12.0 * Ch_aux) : 0;
+
+      const ZPo_lead = p.leader_oklad * p.leader_count * 12.0;
+      const D_lead = ZPo_lead * p.leader_prem_pct / 100.0;
+      const ZP_year_lead = ZPo_lead + D_lead;
+      const ZP_month_lead = p.leader_count ? ZP_year_lead / (12.0 * p.leader_count) : 0;
+
+      const vbf_rate = p.vbf_rate_pct / 100.0;
+      const vbf_main = ZP_year_main * vbf_rate;
+      const vbf_aux = ZP_year_aux * vbf_rate;
+      const vbf_lead = ZP_year_lead * vbf_rate;
+
+      const wage_structure = [
+        {"Категория":"Производственные рабочие","Кол-во, чел":Ch_osn,"Годовой фонд, руб":ZP_year_main,"Прямой фонд, руб":ZPo,"Дополнит. фонд, руб":ZP_year_main-ZPo,"Средняя мес. ЗП, руб":ZP_month_main,"Отчисления (ставка), руб":vbf_main},
+        {"Категория":"Вспомогательные рабочие","Кол-во, чел":Ch_aux,"Годовой фонд, руб":ZP_year_aux,"Прямой фонд, руб":ZPo_aux,"Дополнит. фонд, руб":ZP_year_aux-ZPo_aux,"Средняя мес. ЗП, руб":ZP_month_aux,"Отчисления (ставка), руб":vbf_aux},
+        {"Категория":"Руководители","Кол-во, чел":p.leader_count,"Годовой фонд, руб":ZP_year_lead,"Прямой фонд, руб":ZPo_lead,"Дополнит. фонд, руб":ZP_year_lead-ZPo_lead,"Средняя мес. ЗП, руб":ZP_month_lead,"Отчисления (ставка), руб":vbf_lead},
+        {"Категория":"Итого","Кол-во, чел":Ch_osn+Ch_aux+p.leader_count,"Годовой фонд, руб":ZP_year_main+ZP_year_aux+ZP_year_lead,"Прямой фонд, руб":ZPo+ZPo_aux+ZPo_lead,"Дополнит. фонд, руб":(ZP_year_main-ZPo)+(ZP_year_aux-ZPo_aux)+(ZP_year_lead-ZPo_lead),"Средняя мес. ЗП, руб":"","Отчисления (ставка), руб":vbf_main+vbf_aux+vbf_lead}
+      ];
+
+      const R_sil = (equip_total_power * Fq_eq_used * Kz_avg * p.Kv_simul) / (p.Kps_loss * p.eta_motor);
+      const R_sv = (p.q_light_w_m2 * S_area * p.Fosv_hours) / 1000.0;
+      const energy = [
+        {"Тип":"Силовая эл. энергия","Ед.изм":"кВт·ч","Потребность, кВт·ч":R_sil,"Цена, руб/кВт·ч":p.price_kwh,"Сумма, руб":R_sil*p.price_kwh},
+        {"Тип":"Световая эл. энергия","Ед.изм":"кВт·ч","Потребность, кВт·ч":R_sv,"Цена, руб/кВт·ч":p.price_kwh,"Сумма, руб":R_sv*p.price_kwh},
+      ];
+      const energy_total_kwh = energy.reduce((s,r)=>s+num(r["Потребность, кВт·ч"]),0);
+      const energy_total_cost = energy.reduce((s,r)=>s+num(r["Сумма, руб"]),0);
+      energy.push({"Тип":"Всего","Ед.изм":"-","Потребность, кВт·ч":energy_total_kwh,"Цена, руб/кВт·ч":"","Сумма, руб":energy_total_cost});
+
+      const rseo_amort = equip_amort_total;
+      const rseo_aux_mat = materials_total * p.aux_mat_pct / 100.0;
+      const rseo_energy = energy_total_cost;
+      const rseo_aux_wage = ZP_year_aux;
+      const rseo_aux_vbf = vbf_aux;
+      const rseo_repair = equip_total_cost * p.repair_pct / 100.0;
+      const rseo_tool_wear = equip_total_cost * p.tool_wear_pct / 100.0;
+      const rseo_tool_restore = rseo_tool_wear * p.tool_restore_pct / 100.0;
+      const rseo_inplant = materials_total * p.inplant_pct / 100.0;
+      const rseo_other = ZPo * p.other_pct / 100.0;
+
+      const rseo = [
+        {"Статья":"1. Амортизация оборудования","Сумма, руб":rseo_amort},
+        {"Статья":"2. Вспомогательные материалы","Сумма, руб":rseo_aux_mat},
+        {"Статья":"3. Энергозатраты","Сумма, руб":rseo_energy},
+        {"Статья":"4. Годовая ЗП вспомогательных рабочих","Сумма, руб":rseo_aux_wage},
+        {"Статья":"5. Отчисления с ЗП вспомогательных","Сумма, руб":rseo_aux_vbf},
+        {"Статья":"6. Текущий ремонт оборудования","Сумма, руб":rseo_repair},
+        {"Статья":"7. Износ инструмента","Сумма, руб":rseo_tool_wear},
+        {"Статья":"8. Восстановление износа инструмента","Сумма, руб":rseo_tool_restore},
+        {"Статья":"9. Внутризаводские перемещения","Сумма, руб":rseo_inplant},
+        {"Статья":"10. Прочие расходы","Сумма, руб":rseo_other},
+      ];
+      const rseo_total = rseo.reduce((s,r)=>s+num(r["Сумма, руб"]),0);
+      rseo.push({"Статья":"Итого по смете РСЭО","Сумма, руб":rseo_total});
+
+      const direct_unit_1 = S_ch_avg * (t_det1_sum / 60.0);
+      const direct_unit_2 = S_ch_avg * (t_det2_sum / 60.0);
+      const contrib_ratio_to_direct = (1.0 + add_ratio) * vbf_rate;
+      const rseo_ratio_to_direct = ZPo ? rseo_total / ZPo : 0;
+      const shop_ratio_to_direct = p.shop_overhead_pct / 100.0;
+      const calc_unit = [
+        {"Статья":"1. Основные материалы за вычетом отходов","Всего на выпуск, руб":materials_total,"% к прямой ЗП":"","На 1 деталь (дет1), руб":num(det[0]["Мо, руб/дет"]),"На 1 деталь (дет2), руб":num(det[1]["Мо, руб/дет"] )},
+        {"Статья":"2. Прямая з/плата производственных рабочих","Всего на выпуск, руб":ZPo,"% к прямой ЗП":"","На 1 деталь (дет1), руб":direct_unit_1,"На 1 деталь (дет2), руб":direct_unit_2},
+        {"Статья":"3. Дополнительная з/плата производственных рабочих","Всего на выпуск, руб":ZP_year_main-ZPo,"% к прямой ЗП":add_pct_main,"На 1 деталь (дет1), руб":direct_unit_1*add_ratio,"На 1 деталь (дет2), руб":direct_unit_2*add_ratio},
+        {"Статья":"4. Отчисления в гос. внебюджетные фонды","Всего на выпуск, руб":vbf_main,"% к прямой ЗП":contrib_ratio_to_direct*100.0,"На 1 деталь (дет1), руб":direct_unit_1*contrib_ratio_to_direct,"На 1 деталь (дет2), руб":direct_unit_2*contrib_ratio_to_direct},
+        {"Статья":"5. РСЭО","Всего на выпуск, руб":rseo_total,"% к прямой ЗП":rseo_ratio_to_direct*100.0,"На 1 деталь (дет1), руб":direct_unit_1*rseo_ratio_to_direct,"На 1 деталь (дет2), руб":direct_unit_2*rseo_ratio_to_direct},
+        {"Статья":"6. Цеховые расходы","Всего на выпуск, руб":ZPo*shop_ratio_to_direct,"% к прямой ЗП":shop_ratio_to_direct*100.0,"На 1 деталь (дет1), руб":direct_unit_1*shop_ratio_to_direct,"На 1 деталь (дет2), руб":direct_unit_2*shop_ratio_to_direct},
+      ];
+      const unit_cost_1 = calc_unit.reduce((s,r)=>s+num(r["На 1 деталь (дет1), руб"]),0);
+      const unit_cost_2 = calc_unit.reduce((s,r)=>s+num(r["На 1 деталь (дет2), руб"]),0);
+      calc_unit.push({"Статья":"Цеховая себестоимость","Всего на выпуск, руб":"","% к прямой ЗП":"","На 1 деталь (дет1), руб":unit_cost_1,"На 1 деталь (дет2), руб":unit_cost_2});
+      const TP_total = unit_cost_1 * N1 + unit_cost_2 * N2;
+
+      const metal_tons = det.reduce((s,r)=>s + num(r["Вес заготовки Qз, кг"]) * num(r["Годовая программа N, шт"]),0) / 1000.0;
+      const abs_ind = [
+        {"Показатель":"Товарный выпуск продукции, шт (деталь 1)","Ед.изм.":"шт","Значение":N1},
+        {"Показатель":"Товарный выпуск продукции, шт (деталь 2)","Ед.изм.":"шт","Значение":N2},
+        {"Показатель":"Товарный выпуск продукции, руб (деталь 1)","Ед.изм.":"руб","Значение":unit_cost_1*N1},
+        {"Показатель":"Товарный выпуск продукции, руб (деталь 2)","Ед.изм.":"руб","Значение":unit_cost_2*N2},
+        {"Показатель":"Общая численность работающих","Ед.изм.":"чел","Значение":Ch_osn+Ch_aux+p.leader_count},
+        {"Показатель":"В т.ч. производственных рабочих","Ед.изм.":"чел","Значение":Ch_osn},
+        {"Показатель":"В т.ч. вспомогательных рабочих","Ед.изм.":"чел","Значение":Ch_aux},
+        {"Показатель":"В т.ч. руководителей","Ед.изм.":"чел","Значение":p.leader_count},
+        {"Показатель":"Количество оборудования","Ед.изм.":"ед","Значение":npr_sum},
+        {"Показатель":"Стоимость оборудования","Ед.изм.":"руб","Значение":equip_total_cost},
+        {"Показатель":"Общая мощность оборудования","Ед.изм.":"кВт","Значение":equip_total_power},
+        {"Показатель":"Площадь участка","Ед.изм.":"м²","Значение":S_area},
+        {"Показатель":"Потребность металла на годовую программу","Ед.изм.":"т","Значение":metal_tons},
+      ];
+      const rel_ind = [
+        {"Показатель":"Выпуск на 1 произв. рабочего, руб/год","Формула":"ТП / Чосн","Значение":Ch_osn ? TP_total/Ch_osn : 0},
+        {"Показатель":"Выпуск на 1 работающего, руб/год","Формула":"ТП / (Чосн+Чвсп+Чрук)","Значение":(Ch_osn+Ch_aux+p.leader_count) ? TP_total/(Ch_osn+Ch_aux+p.leader_count) : 0},
+        {"Показатель":"Съём с 1 ед. оборудования, руб","Формула":"ТП / nпр","Значение":npr_sum ? TP_total/npr_sum : 0},
+        {"Показатель":"Съём с 1 м² площади, руб","Формула":"ТП / S","Значение":S_area ? TP_total/S_area : 0},
+        {"Показатель":"Фондоотдача, руб/руб","Формула":"ТП / Стоимость","Значение":equip_total_cost ? TP_total/equip_total_cost : 0},
+        {"Показатель":"Фондоёмкость, руб/руб","Формула":"Стоимость / ТП","Значение":TP_total ? equip_total_cost/TP_total : 0},
+        {"Показатель":"Фондовооружённость (1 смена), руб/чел","Формула":"Стоимость / Чраб(1 смена)","Значение":Ch_osn_per_shift ? equip_total_cost/Ch_osn_per_shift : 0},
+        {"Показатель":"Энерговооружённость (1 смена), кВт·ч/чел","Формула":"Эл.эн. / Чраб(1 смена)","Значение":Ch_osn_per_shift ? energy_total_kwh/Ch_osn_per_shift : 0},
+        {"Показатель":"Средний разряд","Формула":"∑(разряд*число)/число","Значение":grade_avg},
+        {"Показатель":"Трудоёмкость детали 1, н‑ч","Формула":"tшт/60","Значение":t_det1_sum/60.0},
+        {"Показатель":"Себестоимость 1 ед. (деталь 1), руб","Формула":"табл.10","Значение":unit_cost_1},
+        {"Показатель":"Себестоимость 1 ед. (деталь 2), руб","Формула":"табл.10","Значение":unit_cost_2},
+      ];
+
+      const S2 = unit_cost_1;
+      const S1 = S2 * p.base_cost_factor;
+      const cost_down_pct = S1 ? (S1 - S2) / S1 * 100.0 : 0;
+      const t_pr = t_det1_sum;
+      const t_baz = t_pr * p.base_time_factor;
+      const t_down_pct = t_baz ? (t_baz - t_pr) / t_baz * 100.0 : 0;
+      const prod_growth_pct = (100.0 - t_down_pct) ? (100.0 * t_down_pct) / (100.0 - t_down_pct) : 0;
+      const E_year = (S1 - S2) * N1;
+      const Tok = E_year ? equip_total_cost / E_year : 0;
+      const teo = [
+        {"Показатель":"С1 (базовая себестоимость), руб/шт","Значение":S1},
+        {"Показатель":"С2 (по проекту), руб/шт","Значение":S2},
+        {"Показатель":"Снижение себестоимости, %","Значение":cost_down_pct},
+        {"Показатель":"tшт баз, мин","Значение":t_baz},
+        {"Показатель":"tшт проект, мин","Значение":t_pr},
+        {"Показатель":"Снижение трудоёмкости, %","Значение":t_down_pct},
+        {"Показатель":"Рост производительности, %","Значение":prod_growth_pct},
+        {"Показатель":"Условно‑годовая экономия, руб","Значение":E_year},
+        {"Показатель":"Срок окупаемости, лет","Значение":Tok},
+      ];
+
+      const lines_T = calcOps.map(r => {
+        const op = String(r["№ операции"]);
+        const t1 = num(r["tшт деталь1, мин"]);
+        const t2 = num(r["tшт деталь2, мин"]);
+        const T1 = num(r["Т1, н/ч"]);
+        const T2 = num(r["Т2, н/ч"]);
+        return `Опер. ${op}: T1 = (${fmtInt(N1)}×${fmtRu(t1,2,false)})/60 = ${fmtRu(T1,2)} н/ч;  T2 = (${fmtInt(N2)}×${fmtRu(t2,2,false)})/60 = ${fmtRu(T2,2)} н/ч;  ΣT = ${fmtRu(T1+T2,2)} н/ч`;
+      }).join('\n');
+
+      const step1 = p.Dk - p.V_plus_P;
+      const step2 = step1 * p.Ksm_eq * p.Fsm;
+      const step3 = step2 - p.Ppr * p.tn;
+      const step4 = 1 - p.alpha_eq / 100.0;
+      const Fq_eq_sub = `Fqобор = [(Dк-(В+П))×Ксм×Fсм − Ппр×tн]×(1−α/100)\n= [(${p.Dk}−${p.V_plus_P})×${p.Ksm_eq}×${p.Fsm} − ${p.Ppr}×${p.tn}]×(1−${p.alpha_eq}/100)\n= [(${step1})×${p.Ksm_eq}×${p.Fsm} − ${p.Ppr}]×${fmtRu(step4,2,false)}\n= [${fmtRu(step2,2)} − ${p.Ppr}]×${fmtRu(step4,2,false)}\n= ${fmtRu(step3,2)}×${fmtRu(step4,2,false)} = ${fmtRu(Fq_eq_raw,2)} ч${p.use_rounded_funds ? ` ≈ ${fmtInt(Fq_eq_used)} ч (используется дальше)` : ''}`;
+
+      const nr_kz = calcOps.map(r => `Опер. ${r["№ операции"]}: nр = ${fmtRu(r["ΣТ, н/ч"],2)} / (${fmtInt(Fq_eq_used)}×${fmtRu(p.Kvn,2,false)}) = ${fmtRu(r["nр (расчёт), ед"],2)} → nпр=${fmtInt(r["nпр (принято), ед"])};  Kз = ${fmtRu(r["nр (расчёт), ед"],2)}/${fmtInt(r["nпр (принято), ед"])} = ${fmtRu(r["Кз"],2)}`).join('\n');
+
+      const w1 = p.Dk - p.V_plus_P;
+      const w2 = w1 * p.Fsm * p.Ksm_worker;
+      const w3 = 1 - p.a_worker / 100.0;
+      const Fq_worker_sub = `Fqраб = [(Dк-(В+П))×Fсм×Ксм]×(1−a/100)\n= [(${p.Dk}−${p.V_plus_P})×${p.Fsm}×${p.Ksm_worker}]×(1−${p.a_worker}/100)\n= [${w1}×${p.Fsm}×${p.Ksm_worker}]×${fmtRu(w3,2,false)}\n= ${fmtRu(w2,2)}×${fmtRu(w3,2,false)} = ${fmtRu(Fq_worker_raw,2)} ч${p.use_rounded_funds ? ` ≈ ${fmtInt(Fq_worker_used)} ч (используется дальше)` : ''}`;
+
+      const rosn = workers.map(r => `Опер. ${r["№ операции"]}: Rосн = ${fmtRu(r["ΣТ, н/ч"],2)} / (${fmtInt(Fq_worker_used)}×${fmtRu(p.Kvn,2,false)}) = ${fmtRu(r["Росн (расчёт), чел"],2)} → ${fmtInt(r["Росн (принято), чел"])} чел.`).join('\n');
+
+      const materials_sub = det.slice(0,2).map(r => `${r["Наименование детали"]}: Мо = ( ${fmtRu(r["Цена заготовки Цз, руб/кг"],2,false)}×${fmtRu(r["Вес заготовки Qз, кг"],2,false)} − ${fmtRu(r["Цена отходов Цо, руб/кг"],2,false)}×${fmtRu(r["Вес отходов Qотх, кг"],2,false)}×${fmtRu(p.Kr,2,false)} )×${fmtRu(p.Ktr,2,false)} = ${fmtRu(r["Мо, руб/дет"],2)} руб.`).join('\n');
+
+      const wages_main = `ЗПо = Счср × ΣT\n= ${fmtRu(S_ch_avg,2)} × ${fmtRu(T_total,2)} = ${fmtRu(ZPo,2)} руб.\n\nДпрем = ЗПо×${p.prem_pct_main}% = ${fmtRu(D_prem,2)} руб.\nД2см = (Счср×(Дн−Днев)×n2см×Чосн×К2см%)/(2×100)\n= (${fmtRu(S_ch_avg,2)}×(${p.Dk}−${fmtRu(Dnev,1,false)})×${p.n2sm_hours}×${Ch_osn}×${p.k2sm_pct})/(2×100) = ${fmtRu(D_2sm,2)} руб.\nДм = ЗПо×${p.master_pct}% = ${fmtRu(D_m,2)} руб.\nДбр = (Счср×Fqраб×Чбр×%бр)/100 = (${fmtRu(S_ch_avg,2)}×${fmtInt(Fq_worker_used)}×${Ch_br}×${p.brig_pct})/100 = ${fmtRu(D_br,2)} руб.\nДч = ${fmtRu(D_prem,2)} + ${fmtRu(D_2sm,2)} + ${fmtRu(D_m,2)} + ${fmtRu(D_br,2)} = ${fmtRu(D_ch,2)} руб.\nЗПч = ЗПо + Дч = ${fmtRu(ZP_ch,2)} руб.\nЗПдн = ЗПч = ${fmtRu(ZP_dn,2)} руб.\nДотп = ${p.otp_pct}% от ЗПдн = ${fmtRu(D_otp,2)} руб.\nДго = ${p.go_pct}% от ЗПдн = ${fmtRu(D_go,2)} руб.\nДпит = Драб×Чосн×Цпит = ${D_rab}×${Ch_osn}×${fmtInt(p.food_price_day)} = ${fmtRu(D_food,2)} руб.\nЗПгод = ЗПдн + Дотп + Дго + Дпит = ${fmtRu(ZP_year_main,2)} руб.\n% доплат = (ЗПгод − ЗПо)/ЗПо×100 = ${fmtRu(add_pct_main,2)} %`;
+
+      const energy_sub = `Rсил = (ΣM×Fqобор×Kзср×Kв)/(Kпс×η)\n= (${fmtRu(equip_total_power,0)}×${fmtInt(Fq_eq_used)}×${fmtRu(Kz_avg,2,false)}×${fmtRu(p.Kv_simul,2,false)})/(${fmtRu(p.Kps_loss,2,false)}×${fmtRu(p.eta_motor,2,false)})\n= ${fmtRu(R_sil,2)} кВт·ч\n\nRсв = (q×S×Fосв)/1000\n= (${fmtRu(p.q_light_w_m2,0)}×${fmtRu(S_area,2,false)}×${fmtRu(p.Fosv_hours,0)})/1000 = ${fmtRu(R_sv,2)} кВт·ч`;
+
+      return {
+        params: p,
+        details, ops, tariff,
+        ops_labor: calcOps,
+        T_total, t_det1_sum, t_det2_sum,
+        Fq_eq_raw, Fq_eq_used, Kz_avg, S_area,
+        equip_table: equip, equip_total_cost, equip_total_power, equip_amort_total,
+        Fq_worker_raw, Fq_worker_used,
+        workers_table: workers, Ch_osn, Ch_osn_per_shift,
+        tariff_table: tariff_calc, grade_avg, S_ch_avg, Ch_aux,
+        details_materials: det, materials_total,
+        wage_structure, energy_table: energy, energy_total_kwh, energy_total_cost,
+        rseo_table: rseo, rseo_total,
+        calc_unit, unit_cost_1, unit_cost_2, TP_total,
+        abs_ind, rel_ind, teo,
+        subs: { T_ops: lines_T, Fq_eq: Fq_eq_sub, nr_kz, Fq_worker: Fq_worker_sub, rosn, materials: materials_sub, wages_main, energy: energy_sub },
+      };
+    }
+
+    function createField(containerId, key, label, step) {
+      const wrap = document.getElementById(containerId);
+      const div = document.createElement('div');
+      div.className = 'field';
+      div.innerHTML = `<label for="param_${key}">${label}</label><input id="param_${key}" type="number" step="${step}" />`;
+      wrap.appendChild(div);
+      const input = div.querySelector('input');
+      input.value = state.params[key];
+      input.addEventListener('input', () => {
+        state.params[key] = Number(input.value);
+      });
+    }
+
+    function buildParamInputs() {
+      Object.entries(PARAM_GROUPS).forEach(([containerId, fields]) => {
+        const el = document.getElementById(containerId);
+        el.innerHTML = '';
+        fields.forEach(([key, label, step]) => createField(containerId, key, label, step));
+      });
+      document.getElementById('use_rounded_funds').checked = !!state.params.use_rounded_funds;
+      document.getElementById('use_rounded_funds').addEventListener('change', e => {
+        state.params.use_rounded_funds = e.target.checked;
+      });
+    }
+
+    function inferInputType(value, key) {
+      return typeof value === 'number' ? 'number' : 'text';
+    }
+
+    function renderEditableTable(tableId, rows, options = {}) {
+      const table = document.getElementById(tableId);
+      table.innerHTML = '';
+      if (!rows.length) return;
+      const headers = Object.keys(rows[0]);
+      const thead = document.createElement('thead');
+      const hr = document.createElement('tr');
+      headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        hr.appendChild(th);
+      });
+      if (options.allowDelete) {
+        const th = document.createElement('th');
+        th.textContent = 'Действие';
+        hr.appendChild(th);
+      }
+      thead.appendChild(hr);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      rows.forEach((row, rowIndex) => {
+        const tr = document.createElement('tr');
+        headers.forEach(key => {
+          const td = document.createElement('td');
+          const input = document.createElement('input');
+          input.type = inferInputType(row[key], key);
+          if (input.type === 'number') input.step = 'any';
+          input.value = row[key];
+          input.addEventListener('input', () => {
+            row[key] = input.type === 'number' ? Number(input.value) : input.value;
+          });
+          td.appendChild(input);
+          tr.appendChild(td);
+        });
+        if (options.allowDelete) {
+          const td = document.createElement('td');
+          const btn = document.createElement('button');
+          btn.className = 'ghost';
+          btn.textContent = 'Удалить';
+          btn.addEventListener('click', () => {
+            rows.splice(rowIndex, 1);
+            renderAllTables();
+            recalc();
+          });
+          td.appendChild(btn);
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+    }
+
+    function renderStaticTable(rows) {
+      if (!rows || !rows.length) return '<div class="note">Нет данных.</div>';
+      const headers = Object.keys(rows[0]);
+      let html = '<div class="table-wrap"><table><thead><tr>';
+      html += headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+      html += '</tr></thead><tbody>';
+      html += rows.map(r => '<tr>' + headers.map(h => `<td>${formatCell(r[h])}</td>`).join('') + '</tr>').join('');
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    function formatCell(v) {
+      if (typeof v === 'number') {
+        const nd = Math.abs(v - Math.round(v)) < 1e-9 ? 0 : 2;
+        return escapeHtml(fmtRu(v, nd));
+      }
+      return escapeHtml(String(v ?? ''));
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function renderAllTables() {
+      renderEditableTable('detailsTable', state.details, { allowDelete: false });
+      renderEditableTable('opsTable', state.ops, { allowDelete: false });
+      renderEditableTable('tariffTable', state.tariff, { allowDelete: true });
+    }
+
+    function renderMetrics(res) {
+      const metrics = [
+        ['ΣТ, н/ч', fmtRu(res.T_total, 2)],
+        ['Fqобор (исп.), ч', fmtRu(res.Fq_eq_used, 0)],
+        ['Kзср', fmtRu(res.Kz_avg, 2, false)],
+        ['S участка, м²', fmtRu(res.S_area, 2, false)],
+        ['Чосн, чел', fmtInt(res.Ch_osn)],
+        ['Чвсп, чел', fmtInt(res.Ch_aux)],
+        ['Счср, руб/ч', fmtRu(res.S_ch_avg, 2)],
+        ['Стоимость оборуд., руб', fmtRu(res.equip_total_cost, 0)],
+      ];
+      const grid = document.getElementById('metricsGrid');
+      grid.innerHTML = metrics.map(([label, value]) => `<div class="metric"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value)}</div></div>`).join('');
+    }
+
+    function renderCalcSections(res) {
+      const sections = [
+        {
+          title: '1.1 Трудоёмкость программы (формула 1)',
+          open: true,
+          html: `<p>Формула: <b>T = (N×tшт.к)/60, н/ч</b></p><pre>${escapeHtml(res.subs.T_ops)}</pre>${renderStaticTable(res.ops_labor.map(r => pick(r, ['№ операции','Операция','Оборудование','tшт деталь1, мин','tшт деталь2, мин','Т1, н/ч','Т2, н/ч','ΣТ, н/ч'])))}`
+        },
+        {
+          title: '1.2 Оборудование и загрузка (формулы 2–5)',
+          open: true,
+          html: `<p>Формула (2): <b>Fqобор = [(Dк-(В+П))×Ксм×Fсм − Ппр×tн]×(1−α/100), ч</b></p><pre>${escapeHtml(res.subs.Fq_eq)}</pre><p>Формулы (3–4): <b>nр = ΣT/(Fqобор×Квн)</b>; <b>Кз = nр/nпр</b></p><pre>${escapeHtml(res.subs.nr_kz)}</pre>${renderStaticTable(res.ops_labor.map(r => pick(r, ['№ операции','Операция','Оборудование','ΣТ, н/ч','nр (расчёт), ед','nпр (принято), ед','Кз','Загрузка, %'])))}<div style="height:12px"></div>${renderStaticTable(res.equip_table)}`
+        },
+        {
+          title: '1.3 Численность работников (6–9, 16)',
+          open: true,
+          html: `<p>Формула (7): <b>Fqраб = [(Dк-(В+П))×Fсм×Ксм]×(1−a/100), ч</b></p><pre>${escapeHtml(res.subs.Fq_worker)}</pre><p>Формула (6): <b>Rосн = T/(Fqраб×Квн)</b></p><pre>${escapeHtml(res.subs.rosn)}</pre>${renderStaticTable(res.workers_table)}<div style="height:12px"></div>${renderStaticTable(res.tariff_table)}<p>Средний разряд = <b>${fmtRu(res.grade_avg,2,false)}</b>, Счср = <b>${fmtRu(res.S_ch_avg,2)} руб/ч</b>.</p>`
+        },
+        {
+          title: '2.1 Материалы (11–12)',
+          open: true,
+          html: `<p>Формула (11): <b>Мо = (Цз×Qз − Цо×Qотх×Кр)×Ктр</b></p><pre>${escapeHtml(res.subs.materials)}</pre>${renderStaticTable(res.details_materials)}<p>Итого Мг = <b>${fmtRu(res.materials_total,2)} руб</b></p>`
+        },
+        {
+          title: '2.2 Фонд заработной платы (13–35)',
+          open: true,
+          html: `<pre>${escapeHtml(res.subs.wages_main)}</pre>${renderStaticTable(res.wage_structure)}`
+        },
+        {
+          title: '2.3 Электроэнергия (36–37)',
+          open: true,
+          html: `<pre>${escapeHtml(res.subs.energy)}</pre>${renderStaticTable(res.energy_table)}`
+        },
+        {
+          title: '2.4 РСЭО (табл. 9)',
+          open: true,
+          html: renderStaticTable(res.rseo_table)
+        },
+        {
+          title: '2.5 Калькуляция себестоимости (табл. 10)',
+          open: true,
+          html: `${renderStaticTable(res.calc_unit)}<p>Себестоимость 1 шт: деталь1 = <b>${fmtRu(res.unit_cost_1,2)}</b>, деталь2 = <b>${fmtRu(res.unit_cost_2,2)}</b></p>`
+        },
+        {
+          title: '2.6 ТЭП (табл. 11–12)',
+          open: false,
+          html: `${renderStaticTable(res.abs_ind)}<div style="height:12px"></div>${renderStaticTable(res.rel_ind)}`
+        },
+        {
+          title: '2.7 ТЭО проекта',
+          open: false,
+          html: renderStaticTable(res.teo)
+        },
+      ];
+
+      const container = document.getElementById('calcSections');
+      container.innerHTML = sections.map(s => `<details ${s.open ? 'open' : ''}><summary>${escapeHtml(s.title)}</summary><div>${s.html}</div></details>`).join('<div style="height:12px"></div>');
+    }
+
+    function pick(obj, keys) {
+      const out = {};
+      keys.forEach(k => out[k] = obj[k]);
+      return out;
+    }
+
+    function syncTextInputs() {
+      document.getElementById('theme').value = state.theme;
+      document.getElementById('intro_text').value = state.intro_text;
+      document.getElementById('concl_text').value = state.concl_text;
+      document.getElementById('sources_text').value = state.sources_text;
+    }
+
+    function bindTextInputs() {
+      document.getElementById('theme').addEventListener('input', e => state.theme = e.target.value);
+      document.getElementById('intro_text').addEventListener('input', e => state.intro_text = e.target.value);
+      document.getElementById('concl_text').addEventListener('input', e => state.concl_text = e.target.value);
+      document.getElementById('sources_text').addEventListener('input', e => state.sources_text = e.target.value);
+    }
+
+    function recalc() {
+      try {
+        state.params.use_rounded_funds = document.getElementById('use_rounded_funds').checked;
+        const res = computeAll(state.details, state.ops, state.tariff, state.params);
+        state.result = res;
+        renderMetrics(res);
+        renderCalcSections(res);
+        setStatus('Пересчёт выполнен успешно ✅');
+      } catch (err) {
+        document.getElementById('metricsGrid').innerHTML = '';
+        document.getElementById('calcSections').innerHTML = `<div class="note">Ошибка в данных: ${escapeHtml(err.message || String(err))}</div>`;
+        setStatus(`Ошибка: ${err.message || String(err)}`, true);
+      }
+    }
+
+    function setStatus(text, isError = false) {
+      const box = document.getElementById('statusBox');
+      box.innerHTML = `<div class="${isError ? 'note' : 'status'}">${escapeHtml(text)}</div>`;
+    }
+
+    function exportExcel() {
+      if (!state.result) return;
+      const wb = XLSX.utils.book_new();
+      const sheets = {
+        'Табл1_Трудоемкость': state.result.ops_labor.map(r => pick(r, ['№ операции','Операция','Оборудование','tшт деталь1, мин','tшт деталь2, мин','Т1, н/ч','Т2, н/ч','ΣТ, н/ч'])),
+        'Табл2_Оборудование': state.result.ops_labor.map(r => pick(r, ['№ операции','Операция','Оборудование','ΣТ, н/ч','nр (расчёт), ед','nпр (принято), ед','Кз','Загрузка, %'])),
+        'Табл3_Стоимость_оборуд': state.result.equip_table,
+        'Табл4_Рабочие': state.result.workers_table,
+        'Тариф': state.result.tariff_table,
+        'Материалы': state.result.details_materials,
+        'Табл6_ФОТ': state.result.wage_structure,
+        'Электроэнергия': state.result.energy_table,
+        'РСЭО': state.result.rseo_table,
+        'Калькуляция': state.result.calc_unit,
+        'Абс_показатели': state.result.abs_ind,
+        'Отн_показатели': state.result.rel_ind,
+        'ТЭО': state.result.teo,
+      };
+      Object.entries(sheets).forEach(([name, rows]) => {
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+      });
+      XLSX.writeFile(wb, 'TEP_uchastok_po_metodike.xlsx');
+    }
+
+    async function exportDocx() {
+      if (!state.result) return;
+      const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle } = docx;
+      const res = state.result;
+
+      const para = (text, opts = {}) => new Paragraph({
+        alignment: opts.center ? AlignmentType.CENTER : AlignmentType.LEFT,
+        children: [new TextRun({ text, bold: !!opts.bold, size: 28, font: 'Times New Roman' })],
+        spacing: { after: 0, line: 360 },
+      });
+
+      const paragraphsFromText = (text) => lineBreaks(text).map(line => para(line));
+      const simpleTable = (rows, caption) => {
+        if (!rows?.length) return [para(caption, { bold: true }), para('Нет данных.')];
+        const headers = Object.keys(rows[0]);
+        const tableRows = [
+          new TableRow({ children: headers.map(h => new TableCell({ children: [para(String(h), { bold: true })] })) }),
+          ...rows.map(r => new TableRow({ children: headers.map(h => new TableCell({ children: [para(typeof r[h] === 'number' ? fmtRu(r[h], Math.abs(r[h] - Math.round(r[h])) < 1e-9 ? 0 : 2) : String(r[h] ?? ''))] })) }))
+        ];
+        return [
+          para(caption, { bold: true }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: tableRows,
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 1, color: '999999' },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: '999999' },
+              left: { style: BorderStyle.SINGLE, size: 1, color: '999999' },
+              right: { style: BorderStyle.SINGLE, size: 1, color: '999999' },
+              insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: '999999' },
+              insideVertical: { style: BorderStyle.SINGLE, size: 1, color: '999999' },
+            }
+          }),
+          para('')
+        ];
+      };
+
+      const children = [
+        para('КУРСОВАЯ РАБОТА', { bold: true, center: true }),
+        para('по дисциплине: Экономика предприятия', { center: true }),
+        para(`Тема: ${state.theme}`, { center: true }),
+        para(''),
+        para('СОДЕРЖАНИЕ', { bold: true }),
+        ...['Введение','1 Организационный раздел','1.1 Расчет производственной программы','1.2 Расчет потребного количества оборудования и его загрузки','1.3 Расчет потребного количества работающих на участке','2 Экономический раздел','2.1 Расчет затрат на материалы','2.2 Расчет годового фонда заработной платы работающих на участке','2.3 Расчет потребности и стоимости электроэнергии','2.4 Определение расходов на содержание и эксплуатацию оборудования','2.5 Расчет себестоимости продукции','2.6 Технико-экономические показатели работы участка','2.7 Технико-экономическое обоснование проекта','Заключение','Список использованных источников'].map(t => para(t)),
+        para(''),
+        para('ВВЕДЕНИЕ', { bold: true }),
+        ...paragraphsFromText(state.intro_text),
+        para(''),
+        para('ИСХОДНЫЕ ДАННЫЕ', { bold: true }),
+        para(state.theme),
+        ...simpleTable(state.details, 'Таблица — Исходные данные по деталям'),
+        ...simpleTable(state.ops, 'Таблица — Исходные данные по операциям и оборудованию'),
+        ...simpleTable(state.tariff, 'Таблица — Тарифная сетка'),
+        para('1 ОРГАНИЗАЦИОННЫЙ РАЗДЕЛ', { bold: true }),
+        para('1.1 Расчет производственной программы', { bold: true }),
+        para('1.1.2 Расчет трудоемкости производственной программы'),
+        para('T = (N × tшт.к) / 60, н/ч (1)'),
+        para('Подстановка по операциям:'),
+        ...paragraphsFromText(res.subs.T_ops),
+        ...simpleTable(res.ops_labor.map(r => pick(r, ['№ операции','Операция','Оборудование','tшт деталь1, мин','tшт деталь2, мин','Т1, н/ч','Т2, н/ч','ΣТ, н/ч'])), 'Таблица 1 — Расчет трудоемкости'),
+        para('1.2 Расчет потребного количества оборудования и его загрузки', { bold: true }),
+        para('Fqобор = [(Dк-(В+П))×Ксм×Fсм − Ппр×tн]×(1−α/100), ч (2)'),
+        ...paragraphsFromText(res.subs.Fq_eq),
+        para('nр = ΣT / (Fqобор×Квн), ед (3)'),
+        para('Кз = nр / nпр (4)'),
+        ...paragraphsFromText(res.subs.nr_kz),
+        ...simpleTable(res.ops_labor.map(r => pick(r, ['№ операции','Операция','Оборудование','ΣТ, н/ч','nр (расчёт), ед','nпр (принято), ед','Кз','Загрузка, %'])), 'Таблица 2 — Ведомость оборудования и загрузки'),
+        ...simpleTable(res.equip_table, 'Таблица 3 — Стоимость оборудования и амортизация'),
+        para('1.3 Расчет потребного количества работающих на участке', { bold: true }),
+        para('Fqраб = [(Dк-(В+П))×Fсм×Ксм]×(1−a/100), ч (7)'),
+        ...paragraphsFromText(res.subs.Fq_worker),
+        para('Rосн = T / (Fqраб×Квн), чел (6)'),
+        ...paragraphsFromText(res.subs.rosn),
+        ...simpleTable(res.workers_table, 'Таблица 4 — Основные производственные рабочие'),
+        para('2 ЭКОНОМИЧЕСКИЙ РАЗДЕЛ', { bold: true }),
+        para('2.1 Расчет затрат на материалы', { bold: true }),
+        para('Мо = (Цз×Qз − Цо×Qотх×Кр)×Ктр, руб (11)'),
+        ...paragraphsFromText(res.subs.materials),
+        ...simpleTable(res.details_materials, 'Таблица 5 — Ведомость потребности материалов'),
+        para('2.2 Расчет годового фонда заработной платы работающих на участке', { bold: true }),
+        ...paragraphsFromText(res.subs.wages_main),
+        ...simpleTable(res.wage_structure, 'Таблица 6 — Структура годового фонда заработной платы'),
+        para('2.3 Расчет потребности и стоимости электроэнергии', { bold: true }),
+        ...paragraphsFromText(res.subs.energy),
+        ...simpleTable(res.energy_table, 'Таблица 8 — Ведомость расхода электроэнергии'),
+        para('2.4 Определение расходов на содержание и эксплуатацию оборудования', { bold: true }),
+        ...simpleTable(res.rseo_table, 'Таблица 9 — Смета РСЭО'),
+        para('2.5 Расчет себестоимости продукции', { bold: true }),
+        ...simpleTable(res.calc_unit, 'Таблица 10 — Калькуляция себестоимости единицы продукции'),
+        para('2.6 Технико-экономические показатели работы участка', { bold: true }),
+        ...simpleTable(res.abs_ind, 'Таблица 11 — Абсолютные показатели'),
+        ...simpleTable(res.rel_ind, 'Таблица 12 — Относительные показатели'),
+        para('2.7 Технико-экономическое обоснование проекта', { bold: true }),
+        ...simpleTable(res.teo, 'Таблица — ТЭО проекта'),
+        para('ЗАКЛЮЧЕНИЕ', { bold: true }),
+        ...paragraphsFromText(state.concl_text),
+        para('СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ', { bold: true }),
+        ...paragraphsFromText(state.sources_text),
+      ];
+
+      const doc = new Document({
+        sections: [{ properties: {}, children }],
+        styles: {
+          default: {
+            document: { run: { font: 'Times New Roman', size: 28 }, paragraph: { spacing: { line: 360, after: 0 } } }
+          }
+        }
+      });
+
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, 'Kursovaya_TEP_uchastok.docx');
+      setStatus('DOCX сформирован и скачан ✅');
+    }
+
+    function saveJson() {
+      const blob = new Blob([JSON.stringify({ ...state, result: null }, null, 2)], { type: 'application/json;charset=utf-8' });
+      saveAs(blob, 'tep_state.json');
+    }
+
+    function resetDefaults() {
+      state = {
+        theme: "Рассчитать технико-экономические показатели участка по обработке детали ... в серийном производстве",
+        intro_text: DEFAULT_INTRO,
+        concl_text: DEFAULT_CONCLUSION,
+        sources_text: DEFAULT_SOURCES,
+        details: defaultDetails(),
+        ops: defaultOps(),
+        tariff: defaultTariff(),
+        params: defaultParams(),
+        result: null,
+      };
+      document.getElementById('use_rounded_funds').replaceWith(document.getElementById('use_rounded_funds').cloneNode(true));
+      buildParamInputs();
+      syncTextInputs();
+      renderAllTables();
+      bindTextInputs();
+      recalc();
+    }
+
+    function initButtons() {
+      document.getElementById('recalcBtn').addEventListener('click', recalc);
+      document.getElementById('loadDefaultsBtn').addEventListener('click', () => {
+        location.reload();
+      });
+      document.getElementById('saveJsonBtn').addEventListener('click', saveJson);
+      document.getElementById('exportExcelBtn').addEventListener('click', exportExcel);
+      document.getElementById('exportDocxBtn').addEventListener('click', exportDocx);
+      document.getElementById('addTariffRowBtn').addEventListener('click', () => {
+        state.tariff.push({ "Разряд": 0, "Число рабочих": 0, "Часовая ставка, руб/ч": 0 });
+        renderAllTables();
+      });
+    }
+
+    function init() {
+      buildParamInputs();
+      syncTextInputs();
+      bindTextInputs();
+      renderAllTables();
+      initButtons();
+      recalc();
+    }
+
+    init();
+  </script>
+</body>
+</html>
